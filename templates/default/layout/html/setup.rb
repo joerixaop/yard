@@ -3,6 +3,8 @@ def init
 
   if @file
     @contents = File.read_binary(@file)
+    @cut_contents = nil
+    @markup = nil
     @file = File.basename(@file)
     @fname = @file.gsub(/\.[^.]+$/, '')
     @breadcrumb_title = "File: " + @fname
@@ -32,7 +34,15 @@ def init
 end
 
 def contents
-  @contents
+  @cut_contents ||= begin
+                      if @contents =~ /\A#!(\S+)\s*$/ # Shebang support
+                        @markup = $1.to_sym
+                        $'
+                      else
+                        @markup = options[:markup]
+                        @contents
+                      end
+                    end
 end
 
 def index
@@ -46,24 +56,24 @@ def diskfile
   "<div id='filecontents'>" +
   case (File.extname(@file)[1..-1] || '').downcase
   when 'htm', 'html'
-    @contents
+    contents
   when 'txt'
-    "<pre>#{@contents}</pre>"
+    "<pre>#{contents}</pre>"
   when 'textile', 'txtile'
-    htmlify(@contents, :textile)
+    htmlify(contents, :textile)
   when 'markdown', 'md', 'mdown', 'mkd'
-    htmlify(@contents, :markdown)
+    htmlify(contents, :markdown)
   else
-    htmlify(@contents, diskfile_shebang_or_default)
+    htmlify(contents, diskfile_shebang_or_default)
   end +
   "</div>"
 end
 
 def diskfile_shebang_or_default
-  if @contents =~ /\A#!(\S+)\s*$/ # Shebang support
-    @contents = $'
-    $1.to_sym
+  if @cut_contents
+    @markup
   else
-    options[:markup]
+    contents
+    @markup
   end
 end
